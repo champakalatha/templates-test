@@ -1,0 +1,75 @@
+version: 2.0
+Create_Assessment_Template:
+  type: direct
+  description: This template is used for creating Assessment Template in AWS with tags
+  input:
+    Tag_key:
+      description: Assessment Targets are identified using the Resource Tags in AWS. Resource Tags are "Key-Value" pairs. Specify resource tag "Key" for identifying targets.
+      label: Resource Tag Key
+      type: string
+    Tag_value:
+      description: Assessment Targets are identified using the Resource Tags in AWS. Resource Tags are "Key-Value" pairs. Specify resource tag "Value" for identifying targets.
+      label: Resource Tag Value
+      type: string
+    Assessment_target_name:
+      description: Name of the Assessment Target to be created in AWS inspector. Security assessments are done on these Assessment Targets (EC2 Instances) based on the resource tags specified.
+      label: Assessment Target Name
+      type: string
+    Assessment_template_name:
+      description: Name of the Assessment Template to be created in AWS Inspector. Assessment template will contain a) Assessment Target b) Rule packages to be executed.
+      label: Assessment Template Name
+      type: string
+    Duration_in_seconds:
+      description: Duration of the Assessment Run. Number of seconds this security assessment should be run on the target. Longer the assessment runs, more the findings can be.
+      label: Duration (In seconds)
+      type: number
+      constraints:
+      - allowed_values:
+        - 900
+        - 3600
+        - 28800
+        - 43200
+        - 86400
+  tasks:
+    Create_Resource_Group:
+      action: aws_inspector.create_resource_group
+      input:
+        resourceGroupTags:
+        - key: <% $.Tag_key %>
+          value: <% $.Tag_value %>
+      publish:
+        resource_group_arn: <% $.Create_Resource_Group.resourceGroupArn %>
+      on-success:
+      - Create_Assessment_Target
+    Create_Assessment_Target:
+      action: aws_inspector.create_assessment_target
+      input:
+        assessmentTargetName: <% $.Assessment_target_name %>
+        resourceGroupArn: <% $.resource_group_arn %>
+      publish:
+        assessment_target_arn: <% $.Create_Assessment_Target.assessmentTargetArn %>
+      on-success:
+      - List_Rule_Packages
+    List_Rule_Packages:
+      action: aws_inspector.list_rules_packages
+      publish:
+        rule_package_arn: <% $.List_Rule_Packages.rulesPackageArns %>
+      on-success:
+      - Create_Assessment_Template
+    Create_Assessment_Template:
+      action: aws_inspector.create_assessment_template
+      input:
+        assessmentTargetArn: <% $.assessment_target_arn %>
+        assessmentTemplateName: <% $.Assessment_template_name %>
+        durationInSeconds: <% int($.Duration_in_seconds) %>
+        rulesPackageArns: <% $.rule_package_arn %>
+      publish:
+        out: <% $.Create_Assessment_Template %>
+        Assessment_Template_Name: <% $.Assessment_template_name %>
+  output:
+    Assessment_Template:
+      position: 1
+      value: <% $.out %>
+    Assessment_Template_Name:
+      position: 2
+      value: <% $.Assessment_Template_Name %>
