@@ -1,0 +1,30 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Resources": 
+	{
+	"SimpleConfig": 
+		{
+        	"Type": "AWS::AutoScaling::LaunchConfiguration",
+        	"Properties": 
+			{
+                	"ImageId": "ami-0effe918",
+                	"SecurityGroups": ["default"],
+                	"InstanceType": "m1.small",
+                	"BlockDeviceMappings": 
+				[
+                    			{
+                        		"DeviceName": "/dev/sdk",
+                        		"Ebs": 
+						{
+                            			"VolumeSize": "50"
+                        			}
+                    			},
+                    			{
+                        		"DeviceName": "/dev/sdc",
+                        		"VirtualName": "ephemeral0"
+                    			}
+                		]
+            		}
+        	}
+	}
+}
