@@ -1,49 +1,39 @@
 {
-    "AWSTemplateFormatVersion": "2010-09-09",
-    "Resources": 
-	{
-        "MyServerGroup": 
-		{
-            	"Type": "AWS::AutoScaling::AutoScalingGroup",
-            	"Properties": 
-			{
-                	"AvailabilityZones": 
-				{
-                    		"Fn::GetAZs": "us-east-1"
-                		},
-                	"DesiredCapacity": "0",
-                	"MinSize": "0",
-                	"MaxSize": "0",
-                	"LaunchConfigurationName": 
-				{
-                    		"Ref": "SimpleConfig"
-                		},
-                	"TargetGroupARNs" : [ "arn:aws:elasticloadbalancing:us-east-1:054217445839:targetgroup/webserver/4369d7ff3cf6d2ea" ]
-            		}
-        	},
-        "SimpleConfig": 
-		{
-            	"Type": "AWS::AutoScaling::LaunchConfiguration",
-            	"Properties": 
-			{
-                	"ImageId": "ami-0effe918",
-                	"SecurityGroups": ["default"],
-                	"InstanceType": "m1.small",
-                	"BlockDeviceMappings": 
-				[
-                    			{
-                        		"DeviceName": "/dev/sdk",
-                        		"Ebs": 
-						{
-                            			"VolumeSize": "50"
-                        			}
-                    			},
-                    			{
-                        		"DeviceName": "/dev/sdc",
-                        		"VirtualName": "ephemeral0"
-                    			}
-                		]
-            		}
-        	}
+	"AWSTemplateFormatVersion": "2010-09-09",
+	"Resources": {
+		"MyServerGroup": {
+			"Type": "AWS::AutoScaling::AutoScalingGroup",
+			"Properties": {
+				"AvailabilityZones": {
+					"Fn::GetAZs": "us-east-1"
+				},
+				"DesiredCapacity": "0",
+				"MinSize": "0",
+				"MaxSize": "0",
+				"LaunchConfigurationName": {
+					"Ref": "SimpleConfig"
+				},
+				"TargetGroupARNs": ["arn:aws:elasticloadbalancing:us-east-1:054217445839:targetgroup/webserver/4369d7ff3cf6d2ea"]
+			}
+		},
+		"SimpleConfig": {
+			"Type": "AWS::AutoScaling::LaunchConfiguration",
+			"Properties": {
+				"ImageId": "ami-0effe918",
+				"SecurityGroups": ["default"],
+				"InstanceType": "m1.small",
+				"BlockDeviceMappings": [{
+						"DeviceName": "/dev/sdk",
+						"Ebs": {
+							"VolumeSize": "50"
+						}
+					},
+					{
+						"DeviceName": "/dev/sdc",
+						"VirtualName": "ephemeral0"
+					}
+				]
+			}
+		}
 	}
 }
