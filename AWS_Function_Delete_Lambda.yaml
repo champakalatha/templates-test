@@ -1,0 +1,23 @@
+version: 2.0
+Delete_Lambda_Function_AWS:
+  type: direct
+  description: This template is to Delete a Lambda Function
+  input:
+    Function_Name:
+      description: Lambda function to be deleted
+      label: Function_Name
+      type: string
+      source: function.list_function
+      position: 1
+  tasks:
+    Delete_Lambda_Function:
+      description: Delete Lambda Function
+      action: aws_lambda.delete_function
+      input:
+        FunctionName: <% $.Function_Name %>
+      publish:
+        Status: <% $.Delete_Lambda_Function.FunctionARN.ResponseMetadata.HTTPStatusCode %>
+  output:
+    HTTPStatusCode:
+      position: 1
+      value: <% $.Status %>

@@ -1,0 +1,178 @@
+heat_template_version: 2013-05-23
+description: |
+  Template to create an instance in aws public cloud and install LAMP.
+parameter_groups:
+- label: Create_Instance
+  description: Parameters for Creating an instance
+  parameters:
+  - Instance_Name
+  - InstanceType
+  - ImageId
+  - KeyName
+  - SecurityGroupIds
+  - AvailabilityZone
+  - Password
+  - Timeout
+parameters:
+  ImageId:
+    description: Provides the unique ID of Amazon Machine Image that was assigned during registration.
+    label: Image
+    type: string
+    source: image.list_image
+    default: ami-73724d64
+  Instance_Name:
+    description: Name of the server to be created.
+    label: Instance_Name
+    type: string
+    default: Lamp_instance
+  InstanceType:
+    description: The instance type, such as t2.micro. The default type is m1.small.
+    label: InstanceType
+    type: string
+    source: flavor.list_flavor
+    default: t2.micro
+  KeyName:
+    description: Provides the name of the Amazon EC2 key pair.
+    label: KeyName
+    type: string
+    source: keypair.list_keypair
+  SecurityGroupIds:
+    description: A list that contains the security group IDs for VPC security groups to assign to EC2.
+    label: SecurityGroup
+    type: comma_delimited_list
+    source: securitygroup.list_securitygroup
+    default: []
+  AvailabilityZone:
+    description: Specifies the name of the Availability Zone in which the instance is located
+    label: AvailabilityZone
+    type: string
+    default: us-east-1d
+  Password:
+    description: password of the machine
+    label: Password_to_be_injected
+    type: string
+  Timeout:
+    type: number
+    label: Timeout
+    description: Timeout for WaitCondition, depends on your image and environment
+    default: 1800
+resources:
+  Create_Instance:
+    type: CAWS::EC2::Instance
+    properties:
+      ImageId:
+        get_param: ImageId
+      InstanceType:
+        get_param: InstanceType
+      KeyName:
+        get_param: KeyName
+      SecurityGroupIds:
+        get_param: SecurityGroupIds
+      Tags:
+      - Key: Name
+        Value:
+          get_param: Instance_Name
+      AvailabilityZone:
+        get_param: AvailabilityZone
+      UserData:
+        str_replace:
+          template: |
+            #!/bin/bash
+            sudo su
+            apt-get -y update
+            sed -i 's/PermitRootLogin without-password/PermitRootLogin yes/g' /etc/ssh/sshd_config
+            sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/g' /etc/ssh/sshd_config
+            echo 'root:$Password' | chpasswd
+            sed -i 's/session    required     pam_loginuid.so/session    optional     pam_loginuid.so/g' /etc/pam.d/sshd
+            service ssh restart
+            echo 'mysql-server-5.5 mysql-server/root_password password root' | debconf-set-selections
+            echo 'mysql-server-5.5 mysql-server/root_password_again password root' | debconf-set-selections
+            apt-get -y install mysql-server-5.5
+            mysql_install_db
+            cat << EOF | mysql -u root -p'root'
+            exit
+            EOF
+            sed -i \s/'127.0.0.1'/'0.0.0.0'/g /etc/mysql/my.cnf
+            service mysql restart
+            apt-get install apache2 apache2-doc apache2-utils
+            apt-get -y install mysql-client-core-5.5 libapache2-mod-auth-mysql php5-mysql
+            apt-get -y install php5 libapache2-mod-php5 php5-mcrypt
+            service apache2 restart
+            wc_notify --data-binary '{"status": "SUCCESS"}'
+          params:
+            wc_notify:
+              get_attr:
+              - Wait_Handle
+              - curl_cli
+            $Password:
+              get_param: Password
+  Wait_Condition:
+    type: OS::Heat::WaitCondition
+    properties:
+      handle:
+        get_resource: Wait_Handle
+      timeout:
+        get_param: Timeout
+  Wait_Handle:
+    type: OS::Heat::WaitConditionHandle
+  wait_ssh_vm:
+    depends_on: Wait_Condition
+    properties:
+      cmd: ls -l
+      count: 15
+      delay: 20
+      host:
+        get_attr:
+        - Create_Instance
+        - PublicIp
+      password:
+        get_param: Password
+      username: root
+    type: Instance::Wait::SSH
+  execute_script_shellinabox:
+    type: Corestack::Script::Execute
+    depends_on: wait_ssh_vm
+    properties:
+      job_details:
+      - host:
+          get_attr:
+          - Create_Instance
+          - PublicIp
+        keypair_flag: 'false'
+        key_file: ''
+        port: 22
+        username: root
+        password:
+          get_param: Password
+        platform: linux
+        parameters:
+          chef: {}
+        script_uri:
+        - chef_consolemanager/system/lin/global/d74t6
+      job_name: Shellinabox
+outputs:
+  Instance_Id:
+    description: Id of instance
+    value:
+      get_resource: Create_Instance
+    position: 1
+  PublicIp:
+    description: The public IP address of the created instance.
+    value:
+      get_attr:
+      - Create_Instance
+      - PublicIp
+    position: 2
+  Mysql_root_password:
+    description: Password for accessing mysql
+    value: root
+    position: 3
+  Credential:
+    description: Credential to login into VM
+    value:
+      str_replace:
+        template: root/password
+        params:
+          password:
+            get_param: Password
+    position: 4
